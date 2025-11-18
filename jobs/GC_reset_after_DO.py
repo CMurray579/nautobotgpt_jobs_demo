@@ -8,7 +8,7 @@ class SetTenantPlatformAndTag(Job):
     class Meta:
         name = "Set Tenant, Platform, and Tag with Failsafe"
         description = (
-            "Updates tenant to 'Network to Code', platform to 'Cisco IOS', and adds 'GC_Demo' tag for devices "
+            "Updates tenant to 'Network to Code', platform to 'Cisco IOS', and adds 'GC_Demo_Conf' tag for devices "
             "with hostname containing 'jcy-bb' or 'jcy-rtr' (case-insensitive). Aborts if more than 3 devices match."
         )
 
@@ -28,9 +28,9 @@ class SetTenantPlatformAndTag(Job):
             return "Platform 'Cisco IOS' not found, job aborted."
 
         # Retrieve or create the required tag
-        gc_demo_tag, created = Tag.objects.get_or_create(name="GC_Demo")
+        gc_demo_tag, created = Tag.objects.get_or_create(name="GC_Demo_Conf")
         if created:
-            self.logger.info("Created missing tag 'GC_Demo'.")
+            self.logger.info("Created missing tag 'GC_Demo_Conf'.")
 
         # Find matching devices
         matching_devices = Device.objects.filter(name__iregex=r'jcy-bb|jcy-rtr')
