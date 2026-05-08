@@ -21,6 +21,6 @@ register_jobs(
 	SubstituteIPWithMgmt,
 	UpdateDeviceSerial,
 	UpdateIntDescription,
-	SetNtcTenantOnJcyDevices,
+	SetTenantPlatformAndTag,
 	EnableHttpServicesOnTaggedDevices
 	)
