@@ -22,5 +22,5 @@ register_jobs(
 	UpdateDeviceSerial,
 	UpdateIntDescription,
 	SetNtcTenantOnJcyDevices,
-	reset_configs_GC
+	EnableHttpServicesOnTaggedDevices
 	)
