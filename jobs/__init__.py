@@ -7,6 +7,8 @@ from .unused_interfaces import UnusedInterfacesReport
 from .replace_mgmt_address import SubstituteIPWithMgmt
 from .object_interaction import UpdateDeviceSerial
 from .update_interface_description import UpdateIntDescription
+from .GC_reset_after_DO import SetNtcTenantOnJcyDevices
+from .reset_configs_GC import EnableHttpServicesOnTaggedDevices
 
 name = "Tutorial Jobs" 
 
@@ -18,5 +20,7 @@ register_jobs(
 	UnusedInterfacesReport,
 	SubstituteIPWithMgmt,
 	UpdateDeviceSerial,
-	UpdateIntDescription
+	UpdateIntDescription,
+	SetNtcTenantOnJcyDevices,
+	reset_configs_GC
 	)
