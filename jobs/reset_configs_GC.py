@@ -1,7 +1,11 @@
 from typing import List
 
-from nautobot.apps.jobs import BooleanVar, Job, PasswordVar, StringVar, register_jobs
+from nautobot.apps.jobs import BooleanVar, Job, register_jobs
 from nautobot.dcim.models import Device
+from nautobot.extras.choices import (
+    SecretsGroupAccessTypeChoices,
+    SecretsGroupSecretTypeChoices,
+)
 
 from netmiko import ConnectHandler
 from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
@@ -10,12 +14,6 @@ from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutExc
 class EnableHttpServicesOnTaggedDevices(Job):
     """Enable HTTP/HTTPS services on devices tagged GC_Demo_Conf."""
 
-    username = StringVar(
-        description="SSH username for the target devices."
-    )
-    password = PasswordVar(
-        description="SSH password for the target devices."
-    )
     dry_run = BooleanVar(
         default=True,
         description="If enabled, only report which devices would be updated."
@@ -28,7 +26,7 @@ class EnableHttpServicesOnTaggedDevices(Job):
             "ip http secure-server, then save the config."
         )
         approval_required = False
-        has_sensitive_variables = True
+        has_sensitive_variables = False
 
     def get_target_devices(self):
         return Device.objects.filter(tags__name="GC_Demo_Conf").distinct().order_by("name")
@@ -39,16 +37,50 @@ class EnableHttpServicesOnTaggedDevices(Job):
             return None
         return str(primary_ip.address.ip)
 
-    def build_netmiko_params(self, host, username, password):
-        return {
-            "device_type": "cisco_ios",
+    def get_device_credentials(self, device):
+        if not device.secrets_group:
+            raise ValueError(f"{device.name} does not have a Secrets Group assigned.")
+
+        username = device.secrets_group.get_secret_value(
+            access_type=SecretsGroupAccessTypeChoices.TYPE_GENERIC,
+            secret_type=SecretsGroupSecretTypeChoices.TYPE_USERNAME,
+            obj=device,
+        )
+        password = device.secrets_group.get_secret_value(
+            access_type=SecretsGroupAccessTypeChoices.TYPE_GENERIC,
+            secret_type=SecretsGroupSecretTypeChoices.TYPE_PASSWORD,
+            obj=device,
+        )
+
+        try:
+            secret = device.secrets_group.get_secret_value(
+                access_type=SecretsGroupAccessTypeChoices.TYPE_GENERIC,
+                secret_type=SecretsGroupSecretTypeChoices.TYPE_SECRET,
+                obj=device,
+            )
+        except Exception:
+            secret = None
+
+        return username, password, secret
+
+    def get_netmiko_device_type(self, device):
+        if device.platform and device.platform.network_driver:
+            return device.platform.network_driver
+        return "cisco_ios"
+
+    def build_netmiko_params(self, device, host, username, password, secret=None):
+        params = {
+            "device_type": self.get_netmiko_device_type(device),
             "host": host,
             "username": username,
             "password": password,
             "fast_cli": False,
         }
+        if secret:
+            params["secret"] = secret
+        return params
 
-    def run(self, *, username, password, dry_run):
+    def run(self, *, dry_run):
         config_commands = [
             "ip http server",
             "ip http secure-server",
@@ -91,15 +123,22 @@ class EnableHttpServicesOnTaggedDevices(Job):
                 continue
 
             try:
+                username, password, secret = self.get_device_credentials(device)
+
                 self.logger.info("Connecting to %s (%s).", device.name, host)
 
                 connection = ConnectHandler(
                     **self.build_netmiko_params(
+                        device=device,
                         host=host,
                         username=username,
                         password=password,
+                        secret=secret,
                     )
                 )
+
+                if secret:
+                    connection.enable()
 
                 config_output = connection.send_config_set(config_commands)
                 self.logger.info(
